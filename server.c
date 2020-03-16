@@ -15,6 +15,8 @@
 #include "kissdb.h"
 
 #include <time.h>
+#include <pthread.h>
+#include <stdio.h>
 
 #define MY_PORT                 6767
 #define BUF_SIZE                1160
@@ -75,7 +77,9 @@ Request *parse_request(char *buffer) {
   // Extract the key.
   token = strtok(NULL, ":");
   if (token) {
-    strncpy(req->key, token, KEY_SIZE);
+
+      //was strcpy
+    memcpy(req->key, token, KEY_SIZE);
   } else {
     free(req);
     return NULL;
@@ -153,9 +157,10 @@ struct customer{
 
     long recieveTime;
     long startTime;
-    struct request request;
+    int socketFD;
+    //struct request request;
 
-}
+}customer;
 
 // Global Queue declarations
 
@@ -179,6 +184,17 @@ long getTime(){
     return time;
 }
 
+//////////////////////
+// consumer routine //
+//////////////////////
+void *consumer(struct customer customer){
+
+    process_request(customer.socketFD);
+    long finishTime = getTime();
+    long processTime = finishTime - customer.startTime;
+    printf("process time: %li", processTime);
+    close(customer.socketFD);
+}
 
 /*
  * @name main - The main routine.
@@ -228,7 +244,7 @@ int main() {
     return 1;
   }
 
-  
+  struct customer cust;
   // here we should create the consumer threads
 
   // main loop: wait for new connection/requests
@@ -242,13 +258,16 @@ int main() {
     fprintf(stderr, "(Info) main: Got connection from '%s'\n", inet_ntoa(client_addr.sin_addr));
     
     // time stuff
-    struct timespec receiveTime;
+    
 
     // producer puts the request on the queue
-    // 
-    
-    process_request(new_fd);
-    close(new_fd);
+    // do magical stuff here
+    cust.startTime = getTime();
+    cust.socketFD = new_fd;
+
+
+    //process_request(new_fd);
+    //close(new_fd);
   }  
 
   // Destroy the database.
