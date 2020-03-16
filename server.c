@@ -262,9 +262,10 @@ int main() {
 
     // producer puts the request on the queue
     // do magical stuff here
+    pthread_t tid;
     cust.startTime = getTime();
     cust.socketFD = new_fd;
-
+    pthread_ccreate(&tid, NULL, consumer, &cust);
 
     //process_request(new_fd);
     //close(new_fd);
