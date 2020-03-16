@@ -21,6 +21,12 @@
 #define VALUE_SIZE              1024
 #define MAX_PENDING_CONNECTIONS   10
 
+// Queue size
+#define QUEUE_SIZE 20
+
+// Number of cunsumer threads
+#define consumers 10
+
 // Definition of the operation type.
 typedef enum operation {
   PUT,
