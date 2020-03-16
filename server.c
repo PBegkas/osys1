@@ -87,6 +87,9 @@ Request *parse_request(char *buffer) {
   return req;
 }
 
+// create the consumer function that uses the process_request
+
+
 /*
  * @name process_request - Process a client request.
  * @param socket_fd: The accept descriptor.
@@ -189,6 +192,11 @@ int main() {
     return 1;
   }
 
+  
+  // before the loop we create the queue
+
+  // here we should create the consumer threads
+
   // main loop: wait for new connection/requests
   while (1) { 
     // wait for incomming connection
@@ -199,6 +207,8 @@ int main() {
     // got connection, serve request
     fprintf(stderr, "(Info) main: Got connection from '%s'\n", inet_ntoa(client_addr.sin_addr));
     
+    // here we put the request on the queue
+
     process_request(new_fd);
     close(new_fd);
   }  
