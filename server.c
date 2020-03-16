@@ -172,7 +172,7 @@ long getTime(){
 
     long time;
     struct timespec dur;
-    struct timespec *duration;
+    struct timespec *duration = &dur;
     clock_gettime(CLOCK_MONOTONIC, duration);
     time = dur.tv_nsec;
     time += (dur.tv_sec * 1000000000);
