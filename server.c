@@ -163,7 +163,7 @@ int head = 0;
 int tail = 0;
 int fullness = 0;
 
-struct customer[QUEUE_SIZE];
+struct customer queue[QUEUE_SIZE];
 
 
 // Time function
@@ -242,13 +242,13 @@ int main() {
     fprintf(stderr, "(Info) main: Got connection from '%s'\n", inet_ntoa(client_addr.sin_addr));
     
     // time stuff
-    struct timespec receiveTime
+    struct timespec receiveTime;
 
     // producer puts the request on the queue
     // 
     
-    //process_request(new_fd);
-    //close(new_fd);
+    process_request(new_fd);
+    close(new_fd);
   }  
 
   // Destroy the database.
