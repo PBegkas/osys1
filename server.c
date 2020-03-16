@@ -149,11 +149,35 @@ void process_request(const int socket_fd) {
     write_str_to_socket(socket_fd, response_str, strlen(response_str));
 }
 
+struct customer{
+
+    long recieveTime;
+    long startTime;
+    struct request request;
+
+}
+
 // Global Queue declarations
 
 int head = 0;
 int tail = 0;
 int fullness = 0;
+
+struct customer[QUEUE_SIZE];
+
+
+// Time function
+
+long getTime(){
+
+    long time;
+    struct timespec dur;
+    struct timespec *duration;
+    clock_gettime(CLOCK_MONOTONIC, duration);
+    time = dur.tv_nsec;
+    time += (dur.tv_sec * 1000000000);
+    return time;
+}
 
 
 /*
@@ -217,10 +241,14 @@ int main() {
     // got connection, serve request
     fprintf(stderr, "(Info) main: Got connection from '%s'\n", inet_ntoa(client_addr.sin_addr));
     
-    // here we put the request on the queue
+    // time stuff
+    struct timespec receiveTime
 
-    process_request(new_fd);
-    close(new_fd);
+    // producer puts the request on the queue
+    // 
+    
+    //process_request(new_fd);
+    //close(new_fd);
   }  
 
   // Destroy the database.
