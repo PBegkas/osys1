@@ -265,7 +265,7 @@ int main() {
     pthread_t tid;
     cust.startTime = getTime();
     cust.socketFD = new_fd;
-    pthread_ccreate(&tid, NULL, consumer, &cust);
+    pthread_create(&tid, NULL, consumer, &cust);
 
     //process_request(new_fd);
     //close(new_fd);
