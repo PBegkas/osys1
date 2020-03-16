@@ -14,6 +14,8 @@
 #include "utils.h"
 #include "kissdb.h"
 
+#include <time.h>
+
 #define MY_PORT                 6767
 #define BUF_SIZE                1160
 #define KEY_SIZE                 128
@@ -21,10 +23,7 @@
 #define VALUE_SIZE              1024
 #define MAX_PENDING_CONNECTIONS   10
 
-// Queue size
 #define QUEUE_SIZE 20
-
-// Number of cunsumer threads
 #define consumers 10
 
 // Definition of the operation type.
@@ -150,6 +149,13 @@ void process_request(const int socket_fd) {
     write_str_to_socket(socket_fd, response_str, strlen(response_str));
 }
 
+// Global Queue declarations
+
+int head = 0;
+int tail = 0;
+int fullness = 0;
+
+
 /*
  * @name main - The main routine.
  *
@@ -199,8 +205,6 @@ int main() {
   }
 
   
-  // before the loop we create the queue
-
   // here we should create the consumer threads
 
   // main loop: wait for new connection/requests
