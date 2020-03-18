@@ -187,13 +187,16 @@ long getTime(){
 //////////////////////
 // consumer routine //
 //////////////////////
-void *consumer(struct customer customer){
+void *consumer(void *arg){
 
-    process_request(customer.socketFD);
+    struct customer *customer = (struct customer *) arg;
+    struct customer cust = *customer;
+    process_request(cust.socketFD);
     long finishTime = getTime();
-    long processTime = finishTime - customer.startTime;
+    long processTime = finishTime - (cust.startTime);
     printf("process time: %li", processTime);
-    close(customer.socketFD);
+    close(cust.socketFD);
+    return 0;
 }
 
 /*
@@ -265,7 +268,7 @@ int main() {
     pthread_t tid;
     cust.startTime = getTime();
     cust.socketFD = new_fd;
-    pthread_create(&tid, NULL, consumer, &cust);
+    pthread_create(&tid, NULL, consumer, (void *) &cust);
 
     //process_request(new_fd);
     //close(new_fd);
