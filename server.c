@@ -96,8 +96,6 @@ Request *parse_request(char *buffer) {
   return req;
 }
 
-// create the consumer function that uses the process_request
-
 
 /*
  * @name process_request - Process a client request.
@@ -121,6 +119,7 @@ void process_request(const int socket_fd) {
     if (numbytes) {
       request = parse_request(request_str);
       if (request) {
+          // HERE WE MANAGE THE GET PUT MUTEX
         switch (request->operation) {
           case GET:
             // Read the given key from the database.
@@ -169,16 +168,16 @@ long completed_requests = 0;
 
 
 // Global Queue declarations
-
 int head = 0;
 int tail = 0;
 int fullness = 0;
 
 struct customer queue[QUEUE_SIZE];
 
+// mutex declarations
+
 
 // Time function
-
 long getTime(){
 
     long time;
@@ -190,17 +189,39 @@ long getTime(){
     return time;
 }
 
-//////////////////////
+//////////////////////////
 // consumer routine //
-//////////////////////
+//////////////////////////
 void *consumer(void *arg){
 
+    int wasFull;
+
+    // start mutex grab from queue
     struct customer *customer = (struct customer *) arg;
     struct customer cust = *customer;
+    cust.startTime = getTime();
+    wasFull = fullness;
+    if( head == (QUEUE_SIZE - 1) ){
+        head = 0;
+    } else {
+        head ++;
+    }
+    wasFull = fullness;
+    // end mutex grab from queue
+
+    // start mutex fullness
+    fullness --;
+    // end mutex fullness
+
+    if(wasFull == QUEUE_SIZE){
+        // signal NOT FULL
+    }
+
     process_request(cust.socketFD);
+
     long finishTime = getTime();
     long processTime = finishTime - (cust.startTime);
-    printf("process time: %li", processTime);
+    //printf("process time: %li", processTime);
     close(cust.socketFD);
     return 0;
 }
@@ -266,13 +287,14 @@ int main() {
     // got connection, serve request
     fprintf(stderr, "(Info) main: Got connection from '%s'\n", inet_ntoa(client_addr.sin_addr));
     
-    // time stuff
+    ////////////////////////////////////////////////////////////
+
     
 
     // producer puts the request on the queue
     // do magical stuff here
     pthread_t tid;
-    cust.startTime = getTime();
+    cust.recieveTime = getTime();
     cust.socketFD = new_fd;
     pthread_create(&tid, NULL, consumer, (void *) &cust);
 
