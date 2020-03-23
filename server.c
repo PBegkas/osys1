@@ -126,15 +126,16 @@ void process_request(const int socket_fd) {
           case GET:
             // OPERATION CHECK
             while(1){
-              // start mutex writer
+
+              pthread_mutex_lock(&writer);
               if(writer == 0){
       
                 // use separate mutex for the reader ++/-- ??
                 reader ++;
-                // end mutex writer
+                pthread_mutex_unlock(&writer);
                 break;
               }
-              // end mutex writer
+              pthread_mutex_unlock(&writer);
               // wait operate
             }
               
@@ -144,24 +145,26 @@ void process_request(const int socket_fd) {
             else
               sprintf(response_str, "GET OK: %s\n", request->value);
 
-            // start mutex writer
+            pthread_mutex_lock(&writer);
             reader --;
+            pthread_mutex_unlock(&writer);
+
             if(reader == 0){
-              // broadcast operate
+            // broadcast operate
             }
-            // end mutex writer
-            
+
+
             break;
           case PUT:
             // OPERATION CHECK
             while(1){
-              // start mutex writer
+              pthread_mutex_lock(&writer);
               if(reader == 0 && writer == 0){
                 writer = 1;
-                // end mutex writer
+                pthread_mutex_unlock(&writer);
                 break;
               }
-              // end mutex writer
+              pthread_mutex_unlock(&writer);
               // wait operate
             }
 
@@ -171,9 +174,9 @@ void process_request(const int socket_fd) {
             else
               sprintf(response_str, "PUT OK\n");
 
-            // start mutex writer
+            pthread_mutex_lock(&writer);
             writer = 0;
-            // end mutex writer
+            pthread_mutex_unlock(&writer);
 
             // broadcast operate
             break;
@@ -219,6 +222,11 @@ int fullness = 0;
 struct customer queue[QUEUE_SIZE];
 
 // mutex declarations
+pthread_mutex_t grabRequest = pthread_mutex_initializer;
+pthread_mutex_t fullness = pthread_mutex_initializer;
+pthread_mutex_t addTime = pthread_mutex_initializer;
+pthread_mutex_t writer = pthread_mutex_initializer;
+pthread_mutex_t = pthread_mutex_initializer;
 
 
 // Time function
@@ -242,7 +250,7 @@ void *consumer(){ // input was "void *arg"
 
     int wasFull;
 
-    // start mutex grab from queue
+    pthread_mutex_lock(&grabRequest);
     struct customer *customer = queue[head];
     struct customer cust = *customer;
     cust.startTime = getTime();
@@ -253,11 +261,12 @@ void *consumer(){ // input was "void *arg"
         head ++;
     }
     wasFull = fullness;
-    // end mutex grab from queue
+    pthread_mutex_unlock(&grabRequest);
 
-    // start mutex fullness
+    pthread_mutex_lock(&fullness);
     fullness --;
-    // end mutex fullness
+     pthread_mutex_unlock(&fullness);
+
 
     if(wasFull == QUEUE_SIZE){
         // signal NOT FULL
@@ -267,11 +276,11 @@ void *consumer(){ // input was "void *arg"
 
     long finishTime = getTime();
 
-    // start mutex add time
+    pthread_mutex_lock(&addTime);
     total_wainting_time = cust.startTime - cust.recieveTime;
     long total_service_time = finishTime - cust.startTime;
     completed_requests ++;
-    // end muted add time
+    pthread_mutex_unlock(&addTime);
     
     //printf("process time: %li", processTime);
     close(cust.socketFD);
@@ -365,9 +374,9 @@ int main() {
     }
     wasEmpty = fullness;
     
-    // start mutex fullness
+    pthread_mutex_lock(&fullness);
     fullness ++;
-    // end mutex fullness
+    pthread_mutex_unlock(&fullness);
 
     if(wasEmpty == 0){
       // signal not empty
