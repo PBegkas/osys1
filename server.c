@@ -26,7 +26,7 @@
 #define MAX_PENDING_CONNECTIONS   10
 
 #define QUEUE_SIZE 20
-#define consumers 10
+#define CONSUMERS 10
 
 // Definition of the operation type.
 typedef enum operation {
@@ -161,6 +161,12 @@ struct customer{
     //struct request request;
 
 }customer;
+
+// global time variables
+long total_wainting_time = 0;
+long total_service_time = 0;
+long completed_requests = 0;
+
 
 // Global Queue declarations
 
