@@ -96,6 +96,8 @@ Request *parse_request(char *buffer) {
   return req;
 }
 
+int reader = 0;
+int writer = 0;
 
 /*
  * @name process_request - Process a client request.
@@ -122,6 +124,15 @@ void process_request(const int socket_fd) {
           // HERE WE MANAGE THE GET PUT MUTEX
         switch (request->operation) {
           case GET:
+            // OPERATION CHECK
+            while(1){
+              // start mutex writer
+              if(writer == 0){
+                // start mutex reader
+                reader ++;
+              }
+            }
+              
             // Read the given key from the database.
             if (KISSDB_get(db, request->key, request->value))
               sprintf(response_str, "GET ERROR\n");
@@ -129,16 +140,36 @@ void process_request(const int socket_fd) {
               sprintf(response_str, "GET OK: %s\n", request->value);
             break;
           case PUT:
+            // OPERATION CHECK
+            while(1){
+              // start mutex writer
+              if(reader == 0 && writer == 0){
+                writer = 1;
+                // end mutex writer
+                break;
+              }
+              // end mutex writer
+              // wait operate
+            }
+
             // Write the given key/value pair to the database.
             if (KISSDB_put(db, request->key, request->value)) 
               sprintf(response_str, "PUT ERROR\n");
             else
               sprintf(response_str, "PUT OK\n");
+
+            // start mutex writer
+            writer = 0;
+            // end mutex writer
+
+            // signal operate
             break;
           default:
             // Unsupported operation.
             sprintf(response_str, "UNKOWN OPERATION\n");
         }
+        
+
         // Reply to the client.
         write_str_to_socket(socket_fd, response_str, strlen(response_str));
         if (request)
@@ -296,19 +327,32 @@ int main() {
     fprintf(stderr, "(Info) main: Got connection from '%s'\n", inet_ntoa(client_addr.sin_addr));
     
     ////////////////////////////////////////////////////////////
-    // producer puts the request on the queue
-    // do magical stuff here
 
     // full queue check and wait
-
+    
+    int wasEmpty;
     pthread_t tid;
     cust.recieveTime = getTime();
     cust.socketFD = new_fd;
 
+    // put new request in queue
+    queue[tail] = cust;
+    if(tail == (QUEUE_SIZE - 1) ){
+      tail = 0;
+    } else{
+      tail ++;
+    }
+    wasEmpty = fullness;
     
+    // start mutex fullness
+    fullness ++;
+    // end mutex fullness
+
+    if(wasEmpty == 0){
+      // signal not empty
+    }
 
     //pthread_create(&tid, NULL, consumer, (void *) &cust);
-
     //process_request(new_fd);
     //close(new_fd);
   }  
