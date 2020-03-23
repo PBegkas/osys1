@@ -220,7 +220,13 @@ void *consumer(void *arg){
     process_request(cust.socketFD);
 
     long finishTime = getTime();
-    long processTime = finishTime - (cust.startTime);
+
+    // start mutex add time
+    total_wainting_time = cust.startTime - cust.recieveTime;
+    long total_service_time = finishTime - cust.startTime;
+    completed_requests ++;
+    // end muted add time
+    
     //printf("process time: %li", processTime);
     close(cust.socketFD);
     return 0;
