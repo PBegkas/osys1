@@ -194,10 +194,12 @@ long getTime(){
 //////////////////////////
 void *consumer(void *arg){
 
+    // empty queue check and wait
+
     int wasFull;
 
     // start mutex grab from queue
-    struct customer *customer = (struct customer *) arg;
+    struct customer *customer = queue[head];
     struct customer cust = *customer;
     cust.startTime = getTime();
     wasFull = fullness;
@@ -294,15 +296,18 @@ int main() {
     fprintf(stderr, "(Info) main: Got connection from '%s'\n", inet_ntoa(client_addr.sin_addr));
     
     ////////////////////////////////////////////////////////////
-
-    
-
     // producer puts the request on the queue
     // do magical stuff here
+
+    // full queue check and wait
+
     pthread_t tid;
     cust.recieveTime = getTime();
     cust.socketFD = new_fd;
-    pthread_create(&tid, NULL, consumer, (void *) &cust);
+
+    
+
+    //pthread_create(&tid, NULL, consumer, (void *) &cust);
 
     //process_request(new_fd);
     //close(new_fd);
