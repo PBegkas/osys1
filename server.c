@@ -128,9 +128,14 @@ void process_request(const int socket_fd) {
             while(1){
               // start mutex writer
               if(writer == 0){
-                // start mutex reader
+      
+                // use separate mutex for the reader ++/-- ??
                 reader ++;
+                // end mutex writer
+                break;
               }
+              // end mutex writer
+              // wait operate
             }
               
             // Read the given key from the database.
@@ -138,6 +143,14 @@ void process_request(const int socket_fd) {
               sprintf(response_str, "GET ERROR\n");
             else
               sprintf(response_str, "GET OK: %s\n", request->value);
+
+            // start mutex writer
+            reader --;
+            if(reader == 0){
+              // broadcast operate
+            }
+            // end mutex writer
+            
             break;
           case PUT:
             // OPERATION CHECK
@@ -162,7 +175,7 @@ void process_request(const int socket_fd) {
             writer = 0;
             // end mutex writer
 
-            // signal operate
+            // broadcast operate
             break;
           default:
             // Unsupported operation.
@@ -223,8 +236,8 @@ long getTime(){
 //////////////////////////
 // consumer routine //
 //////////////////////////
-void *consumer(void *arg){
-
+void *consumer(){ // input was "void *arg"
+  while(1){
     // empty queue check and wait
 
     int wasFull;
@@ -262,6 +275,7 @@ void *consumer(void *arg){
     
     //printf("process time: %li", processTime);
     close(cust.socketFD);
+  }
     return 0;
 }
 
@@ -315,6 +329,13 @@ int main() {
 
   struct customer cust;
   // here we should create the consumer threads
+  pthread_t ids[CONSUMERS];  
+  
+  for(int i = 0; i > CONSUMERS; i ++){
+  
+    pthread_create(&ids[i], NULL, consumer, NULL); // look into second NULL
+
+  }
 
   // main loop: wait for new connection/requests
   while (1) { 
