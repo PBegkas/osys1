@@ -222,11 +222,18 @@ int fullness = 0;
 struct customer queue[QUEUE_SIZE];
 
 // mutex declarations
-pthread_mutex_t grabRequest = pthread_mutex_initializer;
-pthread_mutex_t fullness = pthread_mutex_initializer;
-pthread_mutex_t addTime = pthread_mutex_initializer;
-pthread_mutex_t writer = pthread_mutex_initializer;
-pthread_mutex_t = pthread_mutex_initializer;
+pthread_mutex_t grabRequest = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t fullness = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t addTime = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t writer = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t isFull = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t isEmpty = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t operate = PTHREAD_MUTEX_INITIALIZER;
+
+// condition declarations
+pthread_cond_t cIsFull = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cIsEmpty = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cOperate = PTHREAD_COND_INITIALIZER;
 
 
 // Time function
@@ -247,6 +254,11 @@ long getTime(){
 void *consumer(){ // input was "void *arg"
   while(1){
     // empty queue check and wait
+    pthread_mutex_lock(&isEmpty);
+    if(fullness == 0){
+      pthread_cond_wait(&cIsEmpty, &isEmpty);
+    }
+    pthread_mutex_unlock(&isEmpty);
 
     int wasFull;
 
@@ -269,7 +281,7 @@ void *consumer(){ // input was "void *arg"
 
 
     if(wasFull == QUEUE_SIZE){
-        // signal NOT FULL
+         pthread_cond_signal(&cIsFull);
     }
 
     process_request(cust.socketFD);
@@ -359,6 +371,11 @@ int main() {
     ////////////////////////////////////////////////////////////
 
     // full queue check and wait
+    pthread_mutex_lock(&isFull);
+    if(fullness == QUEUE_SIZE - 1){
+      pthread_cond_wait(&cIsFull, &isFull);
+    }
+    pthread_mutex_unlock(&isFull);
     
     int wasEmpty;
     pthread_t tid;
@@ -380,6 +397,7 @@ int main() {
 
     if(wasEmpty == 0){
       // signal not empty
+      pthread_cond_signal(&cIsEmpty);
     }
 
     //pthread_create(&tid, NULL, consumer, (void *) &cust);
