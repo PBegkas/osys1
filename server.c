@@ -124,20 +124,14 @@ void process_request(const int socket_fd) {
           // HERE WE MANAGE THE GET PUT MUTEX
         switch (request->operation) {
           case GET:
-            // OPERATION CHECK
-            while(1){
-
-              pthread_mutex_lock(&writer);
-              if(writer == 0){
-      
-                // use separate mutex for the reader ++/-- ??
-                reader ++;
-                pthread_mutex_unlock(&writer);
-                break;
-              }
-              pthread_mutex_unlock(&writer);
-              // wait operate
+            pthread_mutex_lock(&writer);
+            while(writer != 0){
+              pthread_cond_wait(&cWriter, &writer);
+            
             }
+            reader ++;
+            pthread_mutex_unlock(&writer);
+            
               
             // Read the given key from the database.
             if (KISSDB_get(db, request->key, request->value))
@@ -147,26 +141,21 @@ void process_request(const int socket_fd) {
 
             pthread_mutex_lock(&writer);
             reader --;
+              if(reader == 0){
+                pthread_cond_broadcast(&cWriter);
+              } 
             pthread_mutex_unlock(&writer);
-
-            if(reader == 0){
-            // broadcast operate
-            }
-
-
             break;
           case PUT:
-            // OPERATION CHECK
-            while(1){
-              pthread_mutex_lock(&writer);
-              if(reader == 0 && writer == 0){
-                writer = 1;
-                pthread_mutex_unlock(&writer);
-                break;
-              }
-              pthread_mutex_unlock(&writer);
-              // wait operate
+            
+            pthread_mutex_lock(&writer);
+            while(writer != 0 || reader != 0){
+              pthread_cond_wait(&cWriter, &writer);
+            
             }
+            writer = 1;
+            pthread_mutex_unlock(&writer);
+            
 
             // Write the given key/value pair to the database.
             if (KISSDB_put(db, request->key, request->value)) 
@@ -176,9 +165,9 @@ void process_request(const int socket_fd) {
 
             pthread_mutex_lock(&writer);
             writer = 0;
+            pthread_cond_broadcast(&cWriter);
             pthread_mutex_unlock(&writer);
 
-            // broadcast operate
             break;
           default:
             // Unsupported operation.
@@ -233,7 +222,7 @@ pthread_mutex_t operate = PTHREAD_MUTEX_INITIALIZER;
 // condition declarations
 pthread_cond_t cIsFull = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cIsEmpty = PTHREAD_COND_INITIALIZER;
-pthread_cond_t cOperate = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cWriter = PTHREAD_COND_INITIALIZER;
 
 
 // Time function
