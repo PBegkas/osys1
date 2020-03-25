@@ -96,6 +96,7 @@ Request *parse_request(char *buffer) {
   return req;
 }
 
+// global counters to count how many operations are currently being done to the list
 int reader = 0;
 int writer = 0;
 
@@ -197,6 +198,12 @@ struct customer{
 
 }customer;
 
+// consumer thread stopped counter
+int killed = 0;
+
+// variable to signal the consumers to stop
+int eliminate = 0;
+
 // global time variables
 long total_wainting_time = 0;
 long total_service_time = 0;
@@ -218,12 +225,14 @@ pthread_mutex_t writer = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t isFull = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t isEmpty = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t operate = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t elim = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t terminated = PTHREAD_MUTEX_INITIALIZER;
 
 // condition declarations
 pthread_cond_t cIsFull = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cIsEmpty = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cWriter = PTHREAD_COND_INITIALIZER;
-
+pthread_cond_t cTerminated = PTHREAD_COND_INITIALIZER;
 
 // Time function
 long getTime(){
@@ -237,10 +246,40 @@ long getTime(){
     return time;
 }
 
-//////////////////////////
+
+
+
+// terminal stop signal handle
+void stpHandle(void){
+  printf("Terminal stop signal recieved.\n calculating stats.\n");
+  // signal consumers to stop after completing current request
+  eliminate = 1;
+
+  // wait for all the consumers to stop
+  pthread_mutex_lock(&terminated);
+  if(killed < CONSUMERS){
+    pthread_cond_wait(&cTerminated, &terminated);
+  }
+  pthread_mutex_unlock(&terminated);
+
+  long waitingMO = total_wainting_time / completed_requests;
+  long processMO = total_service_time / completed_requests;
+
+  printf("completed requests: %i.\n", completed_requests);
+  printf("average waiting time: %ld.\n", waitingMO);
+  printf("average service time: %ld.\n", processMO);
+
+  printf("Now stopping!\n")
+  // goodbye
+  exit(0);
+}
+
+
+
+//////////////////////
 // consumer routine //
-//////////////////////////
-void *consumer(){ // input was "void *arg"
+//////////////////////
+void *consumer(void){ // input was "void *arg"
   while(1){
     // empty queue check and wait
     pthread_mutex_lock(&isEmpty);
@@ -285,6 +324,15 @@ void *consumer(){ // input was "void *arg"
     
     //printf("process time: %li", processTime);
     close(cust.socketFD);
+
+    if(eliminate == 1){
+      pthread_mutex_lock(&elim);
+      killed ++;
+      if(killed == CONSUMERS){
+        pthread_cond_signal(&cTerminated);
+      pthread_mutex_unlock(&elim);
+      return 0;
+    }
   }
     return 0;
 }
@@ -295,7 +343,7 @@ void *consumer(){ // input was "void *arg"
  * @return 0 on success, 1 on error.
  */
 int main() {
-
+  signal(SIGTSTP, stpHandle);
   int socket_fd,              // listen on this socket for new connections
       new_fd;                 // use this socket to service a new connection
   socklen_t clen;
