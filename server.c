@@ -28,6 +28,26 @@
 #define QUEUE_SIZE 20
 #define CONSUMERS 10
 
+
+
+// mutex declarations
+pthread_mutex_t grabRequest = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mFullness = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t addTime = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mWriter = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t isFull = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t isEmpty = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t operate = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t elim = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t terminated = PTHREAD_MUTEX_INITIALIZER;
+
+// condition declarations
+pthread_cond_t cIsFull = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cIsEmpty = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cWriter = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cTerminated = PTHREAD_COND_INITIALIZER;
+
+
 // Definition of the operation type.
 typedef enum operation {
   PUT,
@@ -125,13 +145,13 @@ void process_request(const int socket_fd) {
           // HERE WE MANAGE THE GET PUT MUTEX
         switch (request->operation) {
           case GET:
-            pthread_mutex_lock(&writer);
+            pthread_mutex_lock(&mWriter);
             while(writer != 0){
-              pthread_cond_wait(&cWriter, &writer);
+              pthread_cond_wait(&cWriter, &mWriter);
             
             }
             reader ++;
-            pthread_mutex_unlock(&writer);
+            pthread_mutex_unlock(&mWriter);
             
               
             // Read the given key from the database.
@@ -140,22 +160,22 @@ void process_request(const int socket_fd) {
             else
               sprintf(response_str, "GET OK: %s\n", request->value);
 
-            pthread_mutex_lock(&writer);
+            pthread_mutex_lock(&mWriter);
             reader --;
               if(reader == 0){
                 pthread_cond_broadcast(&cWriter);
               } 
-            pthread_mutex_unlock(&writer);
+            pthread_mutex_unlock(&mWriter);
             break;
           case PUT:
             
-            pthread_mutex_lock(&writer);
+            pthread_mutex_lock(&mWriter);
             while(writer != 0 || reader != 0){
-              pthread_cond_wait(&cWriter, &writer);
+              pthread_cond_wait(&cWriter, &mWriter);
             
             }
             writer = 1;
-            pthread_mutex_unlock(&writer);
+            pthread_mutex_unlock(&mWriter);
             
 
             // Write the given key/value pair to the database.
@@ -164,10 +184,10 @@ void process_request(const int socket_fd) {
             else
               sprintf(response_str, "PUT OK\n");
 
-            pthread_mutex_lock(&writer);
+            pthread_mutex_lock(&mWriter);
             writer = 0;
             pthread_cond_broadcast(&cWriter);
-            pthread_mutex_unlock(&writer);
+            pthread_mutex_unlock(&mWriter);
 
             break;
           default:
@@ -207,7 +227,7 @@ int eliminate = 0;
 // global time variables
 long total_wainting_time = 0;
 long total_service_time = 0;
-long completed_requests = 0;
+int completed_requests = 0;
 
 
 // Global Queue declarations
@@ -217,22 +237,7 @@ int fullness = 0;
 
 struct customer queue[QUEUE_SIZE];
 
-// mutex declarations
-pthread_mutex_t grabRequest = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t fullness = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t addTime = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t writer = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t isFull = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t isEmpty = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t operate = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t elim = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t terminated = PTHREAD_MUTEX_INITIALIZER;
 
-// condition declarations
-pthread_cond_t cIsFull = PTHREAD_COND_INITIALIZER;
-pthread_cond_t cIsEmpty = PTHREAD_COND_INITIALIZER;
-pthread_cond_t cWriter = PTHREAD_COND_INITIALIZER;
-pthread_cond_t cTerminated = PTHREAD_COND_INITIALIZER;
 
 // Time function
 long getTime(){
@@ -250,7 +255,7 @@ long getTime(){
 
 
 // terminal stop signal handle
-void stpHandle(void){
+void stpHandle(int sig){
   printf("Terminal stop signal recieved.\n calculating stats.\n");
   // signal consumers to stop after completing current request
   eliminate = 1;
@@ -269,7 +274,7 @@ void stpHandle(void){
   printf("average waiting time: %ld.\n", waitingMO);
   printf("average service time: %ld.\n", processMO);
 
-  printf("Now stopping!\n")
+  printf("Now stopping!\n");
   // goodbye
   exit(0);
 }
@@ -291,10 +296,11 @@ void *consumer(void){ // input was "void *arg"
     int wasFull;
 
     pthread_mutex_lock(&grabRequest);
-    struct customer *customer = queue[head];
-    struct customer cust = *customer;
+    // struct customer *customer; // = queue[head];
+    struct customer cust = queue[head];
     cust.startTime = getTime();
     wasFull = fullness;
+    //queue[head] = cust;
     if( head == (QUEUE_SIZE - 1) ){
         head = 0;
     } else {
@@ -303,9 +309,9 @@ void *consumer(void){ // input was "void *arg"
     wasFull = fullness;
     pthread_mutex_unlock(&grabRequest);
 
-    pthread_mutex_lock(&fullness);
+    pthread_mutex_lock(&mFullness);
     fullness --;
-     pthread_mutex_unlock(&fullness);
+     pthread_mutex_unlock(&mFullness);
 
 
     if(wasFull == QUEUE_SIZE){
@@ -332,6 +338,7 @@ void *consumer(void){ // input was "void *arg"
         pthread_cond_signal(&cTerminated);
       pthread_mutex_unlock(&elim);
       return 0;
+      }
     }
   }
     return 0;
@@ -415,7 +422,7 @@ int main() {
     pthread_mutex_unlock(&isFull);
     
     int wasEmpty;
-    pthread_t tid;
+    // pthread_t tid;
     cust.recieveTime = getTime();
     cust.socketFD = new_fd;
 
@@ -428,9 +435,9 @@ int main() {
     }
     wasEmpty = fullness;
     
-    pthread_mutex_lock(&fullness);
+    pthread_mutex_lock(&mFullness);
     fullness ++;
-    pthread_mutex_unlock(&fullness);
+    pthread_mutex_unlock(&mFullness);
 
     if(wasEmpty == 0){
       // signal not empty
