@@ -261,7 +261,8 @@ void stpHandle(int sig){
   printf("Terminal stop signal recieved.\n calculating stats.\n");
   // signal consumers to stop after completing current request
   eliminate = 1;
-
+  // wake up the consumers
+  pthread_cond_broadcast(&cIsEmpty);
   // wait for all the consumers to stop
   pthread_mutex_lock(&terminated);
   if(killed < CONSUMERS){
@@ -298,7 +299,15 @@ void *consumer(){ // input was "void *arg"
   while(1){
     // empty queue check and wait
     pthread_mutex_lock(&isEmpty);
-    if(fullness == 0){
+    while(fullness == 0){
+      if(eliminate == 1){
+        printf("I just died in your arms tonight");
+        killed ++;
+        if(killed == CONSUMERS){
+          pthread_cond_signal(&cTerminated);
+        }
+       return 0;
+      }
       pthread_cond_wait(&cIsEmpty, &isEmpty);
     }
     pthread_mutex_unlock(&isEmpty);
@@ -434,7 +443,7 @@ int main() {
       pthread_cond_wait(&cIsFull, &isFull);
     }
     pthread_mutex_unlock(&isFull);
-    
+    printf("fullness: %i\n", fullness);
     int wasEmpty;
     // pthread_t tid;
     cust.recieveTime = getTime();
