@@ -26,7 +26,7 @@
 #define MAX_PENDING_CONNECTIONS   10
 
 #define QUEUE_SIZE 20
-#define CONSUMERS 15
+#define CONSUMERS 10
 
 
 
@@ -258,10 +258,11 @@ long getTime(){
 
 // terminal stop signal handle
 void stpHandle(int sig){
-  printf("Terminal stop signal recieved.\n calculating stats.\n");
+  printf("\nTerminal stop signal recieved.\nCalculating stats.\n");
   // signal consumers to stop after completing current request
   eliminate = 1;
   // wake up the consumers
+  printf("wake up bitches!\n");
   pthread_cond_broadcast(&cIsEmpty);
   // wait for all the consumers to stop
   pthread_mutex_lock(&terminated);
@@ -274,8 +275,8 @@ void stpHandle(int sig){
   long processMO = total_service_time / completed_requests;
 
   printf("completed requests: %i.\n", completed_requests);
-  printf("average waiting time: %ld.\n", waitingMO);
-  printf("average service time: %ld.\n", processMO);
+  printf("average waiting time: '%ld' nsec.\n", waitingMO);
+  printf("average service time: '%ld' nsec.\n", processMO);
 
   printf("Now stopping!\n");
   // goodbye
@@ -287,11 +288,13 @@ void stpHandle(int sig){
 //////////////////////
 // consumer routine //
 //////////////////////
-void *consumer(){ // input was "void *arg"
-  printf("i m a thread \n");
-  for(int i = 0; i > CONSUMERS; i ++){
-    if(pthread_equal(pthread_self(), ids[i]) == 0){
-      printf("consumer thread no: %i started.\n", i);
+void *consumer(){
+  //printf("i m a thread\n");
+  int id;
+  for(int i = 0; i < CONSUMERS; i ++){
+    if(pthread_equal(pthread_self(), ids[i]) == 1){
+      id = i;
+      //printf("consumer thread no: %i started.\n", i);
       break;
     }
 
@@ -299,19 +302,24 @@ void *consumer(){ // input was "void *arg"
   while(1){
     // empty queue check and wait
     pthread_mutex_lock(&isEmpty);
-    while(fullness == 0){
-      if(eliminate == 1){
-        printf("I just died in your arms tonight");
+    while(fullness == 0 && eliminate == 0){
+      //printf("i ma wait for new requests '%i'\n", id);
+      pthread_cond_wait(&cIsEmpty, &isEmpty);
+      //printf("ya woke me! '%i'\n", id);
+    }
+    pthread_mutex_unlock(&isEmpty);
+
+    if(eliminate == 1){
+        //printf("I just died in your arms tonight '%i'\n", id);
+        pthread_mutex_lock(&terminated);
         killed ++;
         if(killed == CONSUMERS){
           pthread_cond_signal(&cTerminated);
         }
+        pthread_mutex_unlock(&terminated);
        return 0;
       }
-      pthread_cond_wait(&cIsEmpty, &isEmpty);
-    }
-    pthread_mutex_unlock(&isEmpty);
-
+    //printf("i ma work '%i'\n", id);
     int wasFull;
 
     pthread_mutex_lock(&grabRequest);
@@ -370,10 +378,10 @@ void *consumer(){ // input was "void *arg"
  */
 int main() {
   signal(SIGTSTP, stpHandle);
-  printf("hiiiiiiiiii\n");
+  //printf("hiiiiiiiiii\n");
 
   for(int i = 0; i < CONSUMERS; i ++){ 
-    printf("creating thread '%i'\n", i);
+    //printf("creating thread '%i'\n", i);
     pthread_create(&ids[i], NULL, consumer, NULL); // look into second NULL
 
   }
@@ -443,7 +451,7 @@ int main() {
       pthread_cond_wait(&cIsFull, &isFull);
     }
     pthread_mutex_unlock(&isFull);
-    printf("fullness: %i\n", fullness);
+    //printf("fullness: %i\n", fullness);
     int wasEmpty;
     // pthread_t tid;
     cust.recieveTime = getTime();
