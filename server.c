@@ -26,7 +26,7 @@
 #define MAX_PENDING_CONNECTIONS   10
 
 #define QUEUE_SIZE 20
-#define CONSUMERS 10
+#define CONSUMERS 15
 
 
 
@@ -47,6 +47,8 @@ pthread_cond_t cIsEmpty = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cWriter = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cTerminated = PTHREAD_COND_INITIALIZER;
 
+// list of all the consumer threads
+pthread_t ids[CONSUMERS];  
 
 // Definition of the operation type.
 typedef enum operation {
@@ -284,7 +286,15 @@ void stpHandle(int sig){
 //////////////////////
 // consumer routine //
 //////////////////////
-void *consumer(void){ // input was "void *arg"
+void *consumer(){ // input was "void *arg"
+  printf("i m a thread \n");
+  for(int i = 0; i > CONSUMERS; i ++){
+    if(pthread_equal(pthread_self(), ids[i]) == 0){
+      printf("consumer thread no: %i started.\n", i);
+      break;
+    }
+
+  }
   while(1){
     // empty queue check and wait
     pthread_mutex_lock(&isEmpty);
@@ -351,6 +361,14 @@ void *consumer(void){ // input was "void *arg"
  */
 int main() {
   signal(SIGTSTP, stpHandle);
+  printf("hiiiiiiiiii\n");
+
+  for(int i = 0; i < CONSUMERS; i ++){ 
+    printf("creating thread '%i'\n", i);
+    pthread_create(&ids[i], NULL, consumer, NULL); // look into second NULL
+
+  }
+
   int socket_fd,              // listen on this socket for new connections
       new_fd;                 // use this socket to service a new connection
   socklen_t clen;
@@ -394,13 +412,9 @@ int main() {
 
   struct customer cust;
   // here we should create the consumer threads
-  pthread_t ids[CONSUMERS];  
-  
-  for(int i = 0; i > CONSUMERS; i ++){
-  
-    pthread_create(&ids[i], NULL, consumer, NULL); // look into second NULL
 
-  }
+  
+  
 
   // main loop: wait for new connection/requests
   while (1) { 
