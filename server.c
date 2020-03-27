@@ -40,6 +40,7 @@ pthread_mutex_t isEmpty = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t operate = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t elim = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t terminated = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mRemaining = PTHREAD_MUTEX_INITIALIZER;
 
 // condition declarations
 pthread_cond_t cIsFull = PTHREAD_COND_INITIALIZER;
@@ -226,6 +227,9 @@ int killed = 0;
 // variable to signal the consumers to stop
 int eliminate = 0;
 
+// variable to signal producer to stop accepting new requests
+int contract = 0;
+
 // global time variables
 long total_wainting_time = 0;
 long total_service_time = 0;
@@ -253,23 +257,8 @@ long getTime(){
     return time;
 }
 
-
-
-
-// terminal stop signal handle
-void stpHandle(int sig){
-  printf("\nTerminal stop signal recieved.\nCalculating stats.\n");
-  // signal consumers to stop after completing current request
-  eliminate = 1;
-  // wake up the consumers
-  printf("wake up bitches!\n");
-  pthread_cond_broadcast(&cIsEmpty);
-  // wait for all the consumers to stop
-  pthread_mutex_lock(&terminated);
-  if(killed < CONSUMERS){
-    pthread_cond_wait(&cTerminated, &terminated);
-  }
-  pthread_mutex_unlock(&terminated);
+// stats function
+int statistics(){
 
   long waitingMO = total_wainting_time / completed_requests;
   long processMO = total_service_time / completed_requests;
@@ -277,10 +266,17 @@ void stpHandle(int sig){
   printf("completed requests: %i.\n", completed_requests);
   printf("average waiting time: '%ld' nsec.\n", waitingMO);
   printf("average service time: '%ld' nsec.\n", processMO);
+  return 0;
+}
 
-  printf("Now stopping!\n");
-  // goodbye
-  exit(0);
+
+
+// terminal stop signal handle
+void stpHandle(int sig){
+  printf("\nTerminal stop signal caught!\nPlease hold while the last requests are taken care of.\n");
+  // signal producer to stop after completing current request
+  contract = 1;
+  return 0;
 }
 
 
@@ -303,23 +299,26 @@ void *consumer(){
     // empty queue check and wait
     pthread_mutex_lock(&isEmpty);
     while(fullness == 0 && eliminate == 0){
-      //printf("i ma wait for new requests '%i'\n", id);
       pthread_cond_wait(&cIsEmpty, &isEmpty);
-      //printf("ya woke me! '%i'\n", id);
     }
     pthread_mutex_unlock(&isEmpty);
 
     if(eliminate == 1){
-        //printf("I just died in your arms tonight '%i'\n", id);
-        pthread_mutex_lock(&terminated);
-        killed ++;
-        if(killed == CONSUMERS){
-          pthread_cond_signal(&cTerminated);
+        pthread_mutex_lock(&mRemaining);        
+        // check if there are any remaining requests
+        if(fullness == 0){
+          pthread_mutex_unlock(&mRemaining);
+
+          pthread_mutex_lock(&terminated);
+          killed ++;
+          if(killed == CONSUMERS){
+            pthread_cond_signal(&cTerminated);
+          }
+          pthread_mutex_unlock(&terminated);
+          return 0;
         }
-        pthread_mutex_unlock(&terminated);
-       return 0;
-      }
-    //printf("i ma work '%i'\n", id);
+        pthread_mutex_unlock(&mRemaining);
+    }
     int wasFull;
 
     pthread_mutex_lock(&grabRequest);
@@ -434,7 +433,7 @@ int main() {
   
 
   // main loop: wait for new connection/requests
-  while (1) { 
+  while (contract == 0) { 
     // wait for incomming connection
     if ((new_fd = accept(socket_fd, (struct sockaddr *)&client_addr, &clen)) == -1) {
       ERROR("accept()");
@@ -479,6 +478,19 @@ int main() {
     //process_request(new_fd);
     //close(new_fd);
   }  
+  printf("Stopped new requests");
+  // here i go killing again
+  eliminate = 1;
+
+  // wake up any sleeping consumers
+  pthread_cond_broadcast(&cIsEmpty);
+
+  // wait for all the consumers to stop
+  pthread_mutex_lock(&terminated);
+  if(killed < CONSUMERS){
+    pthread_cond_wait(&cTerminated, &terminated);
+  }
+  pthread_mutex_unlock(&terminated);
 
   // Destroy the database.
   // Close the database.
