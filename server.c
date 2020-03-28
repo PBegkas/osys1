@@ -325,24 +325,19 @@ void *consumer(){
     // struct customer *customer; // = queue[head];
     struct customer cust = queue[head];
     cust.startTime = getTime();
-    wasFull = fullness;
-    //queue[head] = cust;
     if( head == (QUEUE_SIZE - 1) ){
         head = 0;
     } else {
         head ++;
     }
-    wasFull = fullness;
     pthread_mutex_unlock(&grabRequest);
 
     pthread_mutex_lock(&mFullness);
     fullness --;
-     pthread_mutex_unlock(&mFullness);
-
-
-    if(wasFull == QUEUE_SIZE){
+    if(fullness + 1 == QUEUE_SIZE){
          pthread_cond_signal(&cIsFull);
     }
+    pthread_mutex_unlock(&mFullness);
 
     process_request(cust.socketFD);
 
@@ -487,7 +482,7 @@ int main() {
 
   // wait for all the consumers to stop
   pthread_mutex_lock(&terminated);
-  if(killed < CONSUMERS){
+  while(killed < CONSUMERS){
     pthread_cond_wait(&cTerminated, &terminated);
   }
   pthread_mutex_unlock(&terminated);
