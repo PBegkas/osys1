@@ -19,6 +19,11 @@
 #define GET_MODE           1
 #define PUT_MODE           2
 #define USER_MODE          3
+#define THREAD_MODE        4
+
+#define THREAD_COUNT       5
+
+int threadsCompleted = 0;
 
 /**
  * @name print_usage - Prints usage information.
@@ -36,6 +41,7 @@ void print_usage() {
   fprintf(stderr, "-i <count>:     Specify the number of iterations.\n");
   fprintf(stderr, "-g:             Repeatedly send GET operations.\n");
   fprintf(stderr, "-p:             Repeatedly send PUT operations.\n");
+  fprintf(stderr, "-r:             Repeatedly send random operations from multiple threads.\n");
 }
 
 /**
@@ -76,6 +82,29 @@ void talk(const struct sockaddr_in server_addr, char *buffer) {
   close(socket_fd);
 }
 
+
+/////////////////////
+// request routine //
+/////////////////////
+int req(int iter,){
+  while(--count>=0) {
+      for (station = 0; station <= MAX_STATION_ID; station++) {
+        memset(snd_buffer, 0, BUF_SIZE);
+        if (mode == GET_MODE) {
+          // Repeatedly GET.
+          sprintf(snd_buffer, "GET:station.%d", station);
+        } else if (mode == PUT_MODE) {
+          // Repeatedly PUT.
+          // create a random value.
+          value = rand() % 65 + (-20);
+          sprintf(snd_buffer, "PUT:station.%d:%d", station, value);
+        }
+        printf("Operation: %s\n", snd_buffer);
+        talk(server_addr, snd_buffer);
+      }
+  }
+}
+
 /**
  * @name main - The main routine.
  */
@@ -91,7 +120,7 @@ int main(int argc, char **argv) {
   struct hostent *host_info;
   
   // Parse user parameters.
-  while ((option = getopt(argc, argv,"i:hgpo:a:")) != -1) {
+  while ((option = getopt(argc, argv,"i:hgpor:a:")) != -1) {
     switch (option) {
       case 'h':
         print_usage();
@@ -104,25 +133,32 @@ int main(int argc, char **argv) {
 	break;
       case 'g':
         if (mode) {
-          fprintf(stderr, "You can only specify one of the following: -g, -p, -o\n");
+          fprintf(stderr, "You can only specify one of the following: -g, -p, -o, -r\n");
           exit(EXIT_FAILURE);
         }
         mode = GET_MODE;
         break;
       case 'p': 
         if (mode) {
-          fprintf(stderr, "You can only specify one of the following: -g, -p, -o\n");
+          fprintf(stderr, "You can only specify one of the following: -g, -p, -o, -r\n");
           exit(EXIT_FAILURE);
         }
         mode = PUT_MODE;
         break;
       case 'o':
         if (mode) {
-          fprintf(stderr, "You can only specify one of the following: -r, -w, -o\n");
+          fprintf(stderr, "You can only specify one of the following: -r, -w, -o, -r\n");
           exit(EXIT_FAILURE);
         }
         mode = USER_MODE;
         request = optarg;
+        break;
+      case 'r':
+        if (mode) {
+          fprintf(stderr, "You can only specify one of the following: -r, -w, -o, -r\n");
+          exit(EXIT_FAILURE);
+        }
+        mode = THREAD_MODE;
         break;
       default:
         print_usage();
@@ -132,7 +168,7 @@ int main(int argc, char **argv) {
 
   // Check parameters.
   if (!mode) {
-    fprintf(stderr, "Error: One of -g, -p, -o is required.\n\n");
+    fprintf(stderr, "Error: One of -g, -p, -o, -r is required.\n\n");
     print_usage();
     exit(0);
   }
@@ -158,7 +194,15 @@ int main(int argc, char **argv) {
     strncpy(snd_buffer, request, strlen(request));
     printf("Operation: %s\n", snd_buffer);
     talk(server_addr, snd_buffer);
-  } else {
+  } else if(mode == THREAD_MODE){ // here we do the thread mode operation, 1 iteration = 128 requests
+    //create multiple threads
+    pthread_t tID;
+    for(int i; i < THREAD_COUNT; i ++){
+      pthread_create(&tID, NULL, req, count);
+
+    }
+
+  } else { 
     while(--count>=0) {
       for (station = 0; station <= MAX_STATION_ID; station++) {
         memset(snd_buffer, 0, BUF_SIZE);
