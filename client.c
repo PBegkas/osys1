@@ -10,6 +10,7 @@
 
 
 #include "utils.h"
+#include <pthread.h>
 
 #define SERVER_PORT     6767
 #define BUF_SIZE        2048
@@ -24,6 +25,11 @@
 #define THREAD_COUNT       5
 
 int threadsCompleted = 0;
+
+pthread_mutex_t completed = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mWait = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cWait = PTHREAD_COND_INITIALIZER;
+
 
 /**
  * @name print_usage - Prints usage information.
@@ -105,6 +111,13 @@ int req(int iter,){
         talk(server_addr, snd_buffer);
       }
   }
+  pthread_mutex_lock(&completed);
+  threadsCompleted ++;
+  if(threadsCompleted == THREAD_COUNT){
+      pthread_cond_signal(&cWait);
+  }
+  pthread_mutex_unlock(&completed);
+  return 0;
 }
 
 /**
@@ -201,8 +214,13 @@ int main(int argc, char **argv) {
     pthread_t tID;
     for(int i; i < THREAD_COUNT; i ++){
       pthread_create(&tID, NULL, req, count);
-
     }
+    // wait
+    pthread_mutex_lock(&mWait);
+    while(threadsCompleted <  THREAD_COUNT){
+        pthread_cond_wait(&cWait, &mWait);
+     }
+    pthread_mutex_unlock(&mWait);
 
   } else { 
     while(--count>=0) {
