@@ -87,13 +87,15 @@ void talk(const struct sockaddr_in server_addr, char *buffer) {
 // request routine //
 /////////////////////
 int req(int iter,){
-  while(--count>=0) {
+
+  while(--iter>=0) {
       for (station = 0; station <= MAX_STATION_ID; station++) {
         memset(snd_buffer, 0, BUF_SIZE);
-        if (mode == GET_MODE) {
+        //  half the requests are put and half  are get
+        if (station%2) {
           // Repeatedly GET.
           sprintf(snd_buffer, "GET:station.%d", station);
-        } else if (mode == PUT_MODE) {
+        } else{
           // Repeatedly PUT.
           // create a random value.
           value = rand() % 65 + (-20);
