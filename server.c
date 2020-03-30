@@ -25,8 +25,8 @@
 #define VALUE_SIZE              1024
 #define MAX_PENDING_CONNECTIONS   10
 
-#define QUEUE_SIZE 20
-#define CONSUMERS 10
+#define QUEUE_SIZE 100
+#define CONSUMERS 30
 
 
 
@@ -210,6 +210,10 @@ void process_request(const int socket_fd) {
     // Send an Error reply to the client.
     sprintf(response_str, "FORMAT ERROR\n");
     write_str_to_socket(socket_fd, response_str, strlen(response_str));
+
+//
+
+
 }
 
 struct customer{
@@ -277,7 +281,7 @@ void stpHandle(int sig){
   // signal producer to stop after completing current request
   // contract = 1;
 
-  printf("Stopped new requests");
+  printf("Stopped new requests\n");
   // signal consumers to 
   eliminate = 1;
 
@@ -313,6 +317,9 @@ void stpHandle(int sig){
 // consumer routine //
 //////////////////////
 void *consumer(){
+  long timeStart;
+  long timeRecieved;
+  int socket_fd;
   /*
   int id;
   for(int i = 0; i < CONSUMERS; i ++){
@@ -329,9 +336,12 @@ void *consumer(){
     while(fullness == 0 && eliminate == 0){
       pthread_cond_wait(&cIsEmpty, &isEmpty);
     }
-    pthread_mutex_unlock(&isEmpty);
+    //pthread_mutex_unlock(&isEmpty);
+    
 
+    // stop signal action
     if(eliminate == 1){
+        pthread_mutex_unlock(&isEmpty);
         pthread_mutex_lock(&mRemaining);        
         // check if there are any remaining requests
         if(fullness == 0){
@@ -347,18 +357,23 @@ void *consumer(){
         }
         pthread_mutex_unlock(&mRemaining);
     }
+
+
+
     //int wasFull;
 
     pthread_mutex_lock(&grabRequest);
     // struct customer *customer; // = queue[head];
     struct customer cust = queue[head];
-    cust.startTime = getTime();
+    timeStart = getTime();
+    timeRecieved = cust.recieveTime;
+    socket_fd = cust.socketFD;
     if( head == (QUEUE_SIZE - 1) ){
         head = 0;
     } else {
         head ++;
     }
-    pthread_mutex_unlock(&grabRequest);
+    //pthread_mutex_unlock(&grabRequest);
 
     pthread_mutex_lock(&mFullness);
     fullness --;
@@ -366,19 +381,24 @@ void *consumer(){
          pthread_cond_signal(&cIsFull);
     }
     pthread_mutex_unlock(&mFullness);
+    pthread_mutex_unlock(&grabRequest);
+    
 
-    process_request(cust.socketFD);
+    pthread_mutex_unlock(&isEmpty);
+
+    process_request(socket_fd);
+    close(socket_fd);
 
     long finishTime = getTime();
 
     pthread_mutex_lock(&addTime);
-    total_wainting_time = cust.startTime - cust.recieveTime;
-    total_service_time = finishTime - cust.startTime;
+    total_wainting_time = cust.startTime - timeRecieved;
+    total_service_time = finishTime - timeStart;
     completed_requests ++;
     pthread_mutex_unlock(&addTime);
     
     //printf("process time: %li", processTime);
-    close(cust.socketFD);
+
 
     if(eliminate == 1){
       pthread_mutex_lock(&elim);
