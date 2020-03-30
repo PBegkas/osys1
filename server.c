@@ -25,13 +25,12 @@
 #define VALUE_SIZE              1024
 #define MAX_PENDING_CONNECTIONS   10
 
-#define QUEUE_SIZE 100
-#define CONSUMERS 30
+#define QUEUE_SIZE 15
+#define CONSUMERS 10
 
 
 
 // mutex declarations
-pthread_mutex_t grabRequest = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mFullness = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t addTime = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mWriter = PTHREAD_MUTEX_INITIALIZER;
@@ -336,9 +335,7 @@ void *consumer(){
     while(fullness == 0 && eliminate == 0){
       pthread_cond_wait(&cIsEmpty, &isEmpty);
     }
-    //pthread_mutex_unlock(&isEmpty);
     
-
     // stop signal action
     if(eliminate == 1){
         pthread_mutex_unlock(&isEmpty);
@@ -358,12 +355,6 @@ void *consumer(){
         pthread_mutex_unlock(&mRemaining);
     }
 
-
-
-    //int wasFull;
-
-    pthread_mutex_lock(&grabRequest);
-    // struct customer *customer; // = queue[head];
     struct customer cust = queue[head];
     timeStart = getTime();
     timeRecieved = cust.recieveTime;
@@ -373,7 +364,6 @@ void *consumer(){
     } else {
         head ++;
     }
-    //pthread_mutex_unlock(&grabRequest);
 
     pthread_mutex_lock(&mFullness);
     fullness --;
@@ -381,7 +371,6 @@ void *consumer(){
          pthread_cond_signal(&cIsFull);
     }
     pthread_mutex_unlock(&mFullness);
-    pthread_mutex_unlock(&grabRequest);
     
 
     pthread_mutex_unlock(&isEmpty);
@@ -392,7 +381,7 @@ void *consumer(){
     long finishTime = getTime();
 
     pthread_mutex_lock(&addTime);
-    total_wainting_time = cust.startTime - timeRecieved;
+    total_wainting_time = timeStart - timeRecieved;
     total_service_time = finishTime - timeStart;
     completed_requests ++;
     pthread_mutex_unlock(&addTime);
