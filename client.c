@@ -22,7 +22,7 @@
 #define USER_MODE          3
 #define THREAD_MODE        4
 
-#define THREAD_COUNT       5
+#define THREAD_COUNT       20
 
 int threadsCompleted = 0;
 
@@ -88,13 +88,9 @@ void talk(const struct sockaddr_in server_addr, char *buffer) {
   close(socket_fd);
 }
 
-char *host = NULL;
-char *request = NULL;
-int mode = 0;
-int option = 0;
+
 // int count = ITER_COUNT;
 // char snd_buffer[BUF_SIZE];
-int station, value;
 struct sockaddr_in server_addr;
 struct hostent *host_info;
 int iteration;
@@ -138,7 +134,11 @@ void *req(){
  * @name main - The main routine.
  */
 int main(int argc, char **argv) {
-  
+  int station, value;
+  char *host = NULL;
+  char *request = NULL;
+  int mode = 0;
+  int option = 0;
   char snd_buffer[BUF_SIZE];
   int count = ITER_COUNT;
 
