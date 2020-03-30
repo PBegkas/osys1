@@ -275,8 +275,36 @@ int statistics(){
 void stpHandle(int sig){
   printf("\nTerminal stop signal caught!\nPlease hold while the last requests are taken care of.\n");
   // signal producer to stop after completing current request
-  contract = 1;
-  return 0;
+  // contract = 1;
+
+  printf("Stopped new requests");
+  // signal consumers to 
+  eliminate = 1;
+
+  // wake up any sleeping consumers
+  pthread_cond_broadcast(&cIsEmpty);
+
+  // wait for all the consumers to stop
+  pthread_mutex_lock(&terminated);
+  while(killed < CONSUMERS){
+    pthread_cond_wait(&cTerminated, &terminated);
+  }
+  pthread_mutex_unlock(&terminated);
+  
+  statistics();
+  
+  // Destroy the database.
+  // Close the database.
+  KISSDB_close(db);
+
+  // Free memory.
+  if (db)
+    free(db);
+  db = NULL;
+
+  exit(0);
+
+
 }
 
 
@@ -285,16 +313,16 @@ void stpHandle(int sig){
 // consumer routine //
 //////////////////////
 void *consumer(){
-  //printf("i m a thread\n");
+  /*
   int id;
   for(int i = 0; i < CONSUMERS; i ++){
     if(pthread_equal(pthread_self(), ids[i]) == 1){
       id = i;
-      //printf("consumer thread no: %i started.\n", i);
+      printf("consumer thread no: %i started.\n", i);
       break;
     }
 
-  }
+  }*/
   while(1){
     // empty queue check and wait
     pthread_mutex_lock(&isEmpty);
@@ -319,7 +347,7 @@ void *consumer(){
         }
         pthread_mutex_unlock(&mRemaining);
     }
-    int wasFull;
+    //int wasFull;
 
     pthread_mutex_lock(&grabRequest);
     // struct customer *customer; // = queue[head];
@@ -345,7 +373,7 @@ void *consumer(){
 
     pthread_mutex_lock(&addTime);
     total_wainting_time = cust.startTime - cust.recieveTime;
-    long total_service_time = finishTime - cust.startTime;
+    total_service_time = finishTime - cust.startTime;
     completed_requests ++;
     pthread_mutex_unlock(&addTime);
     
@@ -376,7 +404,7 @@ int main() {
 
   for(int i = 0; i < CONSUMERS; i ++){ 
     //printf("creating thread '%i'\n", i);
-    pthread_create(&ids[i], NULL, consumer, NULL); // look into second NULL
+    pthread_create(&ids[i], NULL, consumer, NULL); 
 
   }
 
@@ -428,7 +456,7 @@ int main() {
   
 
   // main loop: wait for new connection/requests
-  while (contract == 0) { 
+  while (1) { 
     // wait for incomming connection
     if ((new_fd = accept(socket_fd, (struct sockaddr *)&client_addr, &clen)) == -1) {
       ERROR("accept()");
@@ -472,7 +500,9 @@ int main() {
     //pthread_create(&tid, NULL, consumer, (void *) &cust);
     //process_request(new_fd);
     //close(new_fd);
-  }  
+  }
+
+  /*  
   printf("Stopped new requests");
   // here i go killing again
   eliminate = 1;
@@ -495,6 +525,8 @@ int main() {
   if (db)
     free(db);
   db = NULL;
+
+  */
 
   return 0; 
 }
